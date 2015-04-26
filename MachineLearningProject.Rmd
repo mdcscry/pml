@@ -1,0 +1,146 @@
+---
+title: "Movement Prediction Model based on gyroscopic sensors."
+author: "Matthew Cryer"
+date: "Saturday, April 25, 2015"
+output: html_document
+---
+
+Movement Prediction Model based on gyroscopic sensors.
+
+I've utilized a standard random forest model with bootstrapping for cross-validation.
+
+I used 43 of the metrics.  I eliminated all metrics with mostly NAs.  I also standardized the various gyro metrics.
+They were centered about the axis with mean 0 but spread far.  I saw these as indicators.  I decoded these to 1 or 0.
+I played around with pca but couldn't find the answer.
+
+You can see that the model achieved 83 percent accuracy.
+
+
+### Data Preparation
+
+```{r,echo=FALSE,warning=FALSE}
+library(caret); library(kernlab); 
+
+setwd("C:/Users/mcryer/Documents/github/courses")
+
+
+file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+                    destfile="./machinelearning1/pml-testing.csv",
+                    )
+
+file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+                    destfile="./machinelearning1/pml-training.csv",
+                    )
+
+
+
+fit <- read.csv("./machinelearning1/pml-training.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+
+fit_test <-  read.csv("./machinelearning1/pml-testing.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+
+measures <- fit[,7:159]
+measures_test <- fit_test[,7:159]
+
+
+str(measures[,96])
+head(measures1_test)
+measures1 <- measures[,1:5]
+measures1 <- cbind(measures1,measures[,31:43])
+measures1 <- cbind(measures1,measures[,54:62])
+measures1 <- cbind(measures1,measures[,78:80])
+measures1 <- cbind(measures1,measures[,96])
+measures1 <- cbind(measures1,measures[,107:118])
+measures1 <- cbind(measures1,measures[,145:152])
+
+measures1_test <- measures_test[,1:5]
+measures1_test <- cbind(measures1_test,measures_test[,31:43])
+measures1_test <- cbind(measures1_test,measures_test[,54:62])
+measures1_test <- cbind(measures1_test,measures_test[,78:80])
+measures1_test <- cbind(measures1_test,measures_test[,96])
+measures1_test <- cbind(measures1_test,measures_test[,107:118])
+measures1_test <- cbind(measures1_test,measures_test[,145:152])
+
+head(measures1_test)
+
+
+str(measures1_test)
+names(measures1_test$measures_test[, 96])<- 
+
+#summary(measures1)
+
+measures1$gyros_forearm_z<- ifelse(measures1$gyros_forearm_z >= 0,1,0)
+measures1$gyros_forearm_y<- ifelse(measures1$gyros_forearm_y >= 0,1,0)
+measures1$gyros_forearm_x<- ifelse(measures1$gyros_forearm_x >= 0,1,0)
+
+measures1$gyros_dumbbell_x<- ifelse(measures1$gyros_dumbbell_x >= 0,1,0)
+measures1$gyros_dumbbell_y<- ifelse(measures1$gyros_dumbbell_y >= 0,1,0)
+measures1$gyros_dumbbell_z<- ifelse(measures1$gyros_dumbbell_z >= 0,1,0)
+
+measures1$gyros_arm_z<- ifelse(measures1$gyros_arm_z >= 0,1,0)
+measures1$gyros_arm_y<- ifelse(measures1$gyros_arm_y >= 0,1,0)
+measures1$gyros_arm_x<- ifelse(measures1$gyros_arm_x >= 0,1,0)
+
+measures1$gyros_belt_x<- ifelse(measures1$gyros_belt_x >= 0,1,0)
+measures1$gyros_belt_y<- ifelse(measures1$gyros_belt_y >= 0,1,0)
+measures1$gyros_belt_z<- ifelse(measures1$gyros_belt_z >= 0,1,0)
+
+measures1_test$gyros_forearm_z<- ifelse(measures1_test$gyros_forearm_z >= 0,1,0)
+measures1_test$gyros_forearm_y<- ifelse(measures1_test$gyros_forearm_y >= 0,1,0)
+measures1_test$gyros_forearm_x<- ifelse(measures1_test$gyros_forearm_x >= 0,1,0)
+
+measures1_test$gyros_dumbbell_x<- ifelse(measures1_test$gyros_dumbbell_x >= 0,1,0)
+measures1_test$gyros_dumbbell_y<- ifelse(measures1_test$gyros_dumbbell_y >= 0,1,0)
+measures1_test$gyros_dumbbell_z<- ifelse(measures1_test$gyros_dumbbell_z >= 0,1,0)
+
+measures1_test$gyros_arm_z<- ifelse(measures1_test$gyros_arm_z >= 0,1,0)
+measures1_test$gyros_arm_y<- ifelse(measures1_test$gyros_arm_y >= 0,1,0)
+measures1_test$gyros_arm_x<- ifelse(measures1_test$gyros_arm_x >= 0,1,0)
+
+measures1_test$gyros_belt_x<- ifelse(measures1_test$gyros_belt_x >= 0,1,0)
+measures1_test$gyros_belt_y<- ifelse(measures1_test$gyros_belt_y >= 0,1,0)
+measures1_test$gyros_belt_z<- ifelse(measures1_test$gyros_belt_z >= 0,1,0)
+
+
+
+
+head(measures1_test)
+
+fittr<-measures1
+fittr_test<-measures1_test
+#ADD CLASSE
+fittr$Classe <-as.factor(fit$classe)
+
+
+#SAMPLE
+fittr1<-fittr[sample(nrow(fittr),5000),]
+fittr1_test <- fittr_test
+#str(fittr1)
+
+
+set.seed(32343)
+inTrain <- createDataPartition(y=fittr1$Classe,
+                              p=0.75, list=FALSE)
+
+training <- fittr1[inTrain,]
+testing <- fittr1[-inTrain,]
+
+
+      train_control <- trainControl(method="boot", number=100)
+      modelFit2 <- train(Classe ~.,data=training,method="rf",trControl=train_control
+                         )
+
+modelFit2
+
+predictions <- predict(modelFit2,newdata=testing)
+predictions
+
+
+confusionMatrix(predictions,testing$Classe)
+
+testPredictions<- predict(modelFit2,newdata=fittr1_test)
+
+summary(fittr1_test)
+summary(fittr1)
+
+
+```
