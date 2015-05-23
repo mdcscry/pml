@@ -1,2 +1,0 @@
-# pml
-practical machine learning

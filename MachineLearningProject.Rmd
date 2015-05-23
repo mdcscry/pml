@@ -1,22 +1,17 @@
 ---
-title: "Movement Prediction Model based on gyroscopic sensors."
+title: "Machine Learning"
 author: "Matthew Cryer"
 date: "Saturday, April 25, 2015"
 output: html_document
 ---
+##  Introduction:
+The assignment at hand is to build an algorithmic approach to prediction based on gyrometric movement observations.  This is a standard classification exercise.  We have 5 separate classes making it a multinomial classification.
 
-Movement Prediction Model based on gyroscopic sensors.
+Two methods introduced in the class include Random Forests(parRF) and Boosting(gbm)  I undertook to build build and tune a model for both.  I intend to examine both models against the test set provided as well as compare the models themselves.
 
-I've utilized a standard random forest model with bootstrapping for cross-validation.
-
-I used 43 of the metrics.  I eliminated all metrics with mostly NAs.  I also standardized the various gyro metrics.
-They were centered about the axis with mean 0 but spread far.  I saw these as indicators.  I decoded these to 1 or 0.
-I played around with pca but couldn't find the answer.
-
-You can see that the model achieved 94 percent accuracy. I missed #18.  
+Cross validation was performed using two different methods.  I bootstrapped the Random Forest and CV'd the boosted model.
 
 
-### Data Preparation
 
 ```{r,echo=TRUE,warning=FALSE,eval=FALSE}
 library(caret); library(kernlab); 
@@ -24,129 +19,130 @@ library(caret); library(kernlab);
 setwd("C:/Users/mcryer/Documents/github/courses")
 
 
-file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
-                    destfile="./machinelearning1/pml-testing.csv",
+file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="./machinelearning1/pml-testing.csv",
                     )
-
-file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
-                    destfile="./machinelearning1/pml-training.csv",
-                    )
-
-
 
 fit <- read.csv("./machinelearning1/pml-training.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
 
-fit_test <-  read.csv("./machinelearning1/pml-testing.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+nrow(fit)
+
+fit_test <- read.csv("./machinelearning1/pml-testing.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+
+nrow(fit_test)
 
 measures <- fit[,7:159]
 measures_test <- fit_test[,7:159]
 
-measures1 <- measures[,1:5]
+measures1 <- measures[,2:5]
 measures1 <- cbind(measures1,measures[,31:43])
 measures1 <- cbind(measures1,measures[,54:62])
 measures1 <- cbind(measures1,measures[,78:80])
-measures1$total_accel_dumbell <- measures[,96]
 measures1 <- cbind(measures1,measures[,107:118])
 measures1 <- cbind(measures1,measures[,145:152])
-
-
-measures1_test <- measures_test[,1:5]
+measures1_test <- measures_test[,2:5]
 measures1_test <- cbind(measures1_test,measures_test[,31:43])
 measures1_test <- cbind(measures1_test,measures_test[,54:62])
 measures1_test <- cbind(measures1_test,measures_test[,78:80])
-measures1_test$total_accel_dumbell <- measures_test[,96]
 measures1_test <- cbind(measures1_test,measures_test[,107:118])
 measures1_test <- cbind(measures1_test,measures_test[,145:152])
 
-measures1$gyros_forearm_z<- ifelse(measures1$gyros_forearm_z >= 0,1,0)
-measures1$gyros_forearm_y<- ifelse(measures1$gyros_forearm_y >= 0,1,0)
-measures1$gyros_forearm_x<- ifelse(measures1$gyros_forearm_x >= 0,1,0)
-
-measures1$gyros_dumbbell_x<- ifelse(measures1$gyros_dumbbell_x >= 0,1,0)
-measures1$gyros_dumbbell_y<- ifelse(measures1$gyros_dumbbell_y >= 0,1,0)
-measures1$gyros_dumbbell_z<- ifelse(measures1$gyros_dumbbell_z >= 0,1,0)
-
-measures1$gyros_arm_z<- ifelse(measures1$gyros_arm_z >= 0,1,0)
-measures1$gyros_arm_y<- ifelse(measures1$gyros_arm_y >= 0,1,0)
-measures1$gyros_arm_x<- ifelse(measures1$gyros_arm_x >= 0,1,0)
-
-measures1$gyros_belt_x<- ifelse(measures1$gyros_belt_x >= 0,1,0)
-measures1$gyros_belt_y<- ifelse(measures1$gyros_belt_y >= 0,1,0)
-measures1$gyros_belt_z<- ifelse(measures1$gyros_belt_z >= 0,1,0)
-
-measures1_test$gyros_forearm_z<- ifelse(measures1_test$gyros_forearm_z >= 0,1,0)
-measures1_test$gyros_forearm_y<- ifelse(measures1_test$gyros_forearm_y >= 0,1,0)
-measures1_test$gyros_forearm_x<- ifelse(measures1_test$gyros_forearm_x >= 0,1,0)
-
-measures1_test$gyros_dumbbell_x<- ifelse(measures1_test$gyros_dumbbell_x >= 0,1,0)
-measures1_test$gyros_dumbbell_y<- ifelse(measures1_test$gyros_dumbbell_y >= 0,1,0)
-measures1_test$gyros_dumbbell_z<- ifelse(measures1_test$gyros_dumbbell_z >= 0,1,0)
-
-measures1_test$gyros_arm_z<- ifelse(measures1_test$gyros_arm_z >= 0,1,0)
-measures1_test$gyros_arm_y<- ifelse(measures1_test$gyros_arm_y >= 0,1,0)
-measures1_test$gyros_arm_x<- ifelse(measures1_test$gyros_arm_x >= 0,1,0)
-
-measures1_test$gyros_belt_x<- ifelse(measures1_test$gyros_belt_x >= 0,1,0)
-measures1_test$gyros_belt_y<- ifelse(measures1_test$gyros_belt_y >= 0,1,0)
-measures1_test$gyros_belt_z<- ifelse(measures1_test$gyros_belt_z >= 0,1,0)
-
+summary(measures1)
+summary(measures1_test)
 
 fittr<-measures1
 fittr_test<-measures1_test
 
-#head(fittr,1)
-#head(fittr_test,1)
 
 #ADD CLASSE
 fittr$Classe <-as.factor(fit$classe)
 
+fittr2<-fittr
+fittr2$gyros_belt_x<-NULL
+fittr2$gyros_belt_y<-NULL
+fittr2$gyros_arm_x<-NULL
+fittr2$gyros_arm_z<-NULL
+fittr2$gyros_dumbbell_x<-NULL
+fittr2$gyros_dumbbell_y<-NULL
+fittr2$gyros_forearm_x<-NULL
+fittr2$gyros_forearm_y<-NULL
+fittr2$gyros_forearm_z<-NULL
 
-#SAMPLE
-fittr1<-fittr[sample(nrow(fittr),2000),]
-fittr1_test <- fittr_test
-#head(fittr1,1)
-#head(fittr1_test,1)
+fittr2_test<-fittr_test
+fittr2_test$gyros_belt_x<-NULL
+fittr2_test$gyros_belt_y<-NULL
+fittr2_test$gyros_arm_x<-NULL
+fittr2_test$gyros_arm_z<-NULL
+fittr2_test$gyros_dumbbell_x<-NULL
+fittr2_test$gyros_dumbbell_y<-NULL
+fittr2_test$gyros_forearm_x<-NULL
+fittr2_test$gyros_forearm_y<-NULL
+fittr2_test$gyros_forearm_z<-NULL
+#####Data cleansing completed
+
+
+
+#SAMPLE for speed
+fittr1<-fittr2[sample(nrow(fittr2),10000),] #10000
+fittr1_test<-fittr2_test
+
+
+###Register Parallel server
+cl <- makePSOCKcluster(2)
+clusterEvalQ(cl, library(foreach))
+registerDoParallel(cl)
+
 
 set.seed(32343)
 inTrain <- createDataPartition(y=fittr1$Classe,
-                               p=0.75, list=FALSE)
-
+                              p=0.6, list=FALSE)
+head(training)
 training <- fittr1[inTrain,]
 testing <- fittr1[-inTrain,]
 
+####RF Model
+train_control <- trainControl(method="boot",number=30)
+modelFit <- train(Classe ~ .,data=training,method="parRF",prox=TRUE
+                  ,trControl=train_control
+                  ,ntree=25)
+modelFit
+save(modelFit, file = "ml_modelFit.rda")
 
-      train_control <- trainControl(method="boot", number=100)
-    modelFit2 <- train(Classe ~.,data=training,method="rf"
-                        ,ntree=100
-                         ,trControl=train_control
-                         )
 
+###GBM Model
+fitControl <- trainControl(## 10-fold CV
+                           method = "boot",
+                           number = 20)
+gbmGrid <-  expand.grid(interaction.depth = c(12),
+                        n.trees = 100,
+                        shrinkage = c(0.15)
+                        )
+
+modelFit2 <- train(Classe ~ ., method="gbm",data=training,trControl = fitControl,tuneGrid = gbmGrid,n.minobsinnode = c(5),verbose=FALSE)
 modelFit2
+save(modelFit2, file = "ml_modelFit2.rda")
 
-predictions <- predict(modelFit2,newdata=testing)
-predictions
+rf_predictions <- predict(modelFit,newdata=testing)
+confusionMatrix(rf_predictions,testing$Classe)
+
+gbm_predictions <- predict(modelFit2,newdata=testing)
+confusionMatrix(gbm_predictions,testing$Classe)
+
+mltest_predictions <- predict(modelFit,newdata=fittr1_test)
+mltest2_predictions <- predict(modelFit2,newdata=fittr1_test)
+
+n<-mltest2_predictions
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(n)
 
 
-confusionMatrix(predictions,testing$Classe)
-
-testPredictions<- predict(modelFit2,newdata=fittr1_test)
 
 
-
-
-
-
-#pml_write_files = function(x){
-#  n = length(x)
-#  for(i in 1:n){
-#    filename = paste0("./problem_id_",i,".txt")
-#    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-#  }
-#}
-
-#pml_write_files(testPredictions)
-
-```
-library(knitr)
-knit2html("MachineLearningProject.Rmd","mlp-project-writeup.html")
 
