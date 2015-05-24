@@ -4,29 +4,62 @@ author: "Matthew Cryer"
 date: "Saturday, April 25, 2015"
 output: html_document
 ---
+```{r,echo=FALSE,warning=FALSE,eval=FALSE}
+library(caret); library(kernlab); library(ggplot2);
+setwd("C:/Users/mcryer/Documents/github/courses/machinelearning1")
+
+ if(file.exists("ml_modelFit.rda")) { 
+    load("ml_modelFit.rda") 
+    }
+ if(file.exists("ml_modelFit2.rda")) { 
+    load("ml_modelFit2.rda") 
+    }
+
+```
+
+
 ##  Introduction:
 The assignment at hand is to build an algorithmic approach to prediction based on gyrometric movement observations.  This is a standard classification exercise.  We have 5 separate classes making it a multinomial classification.
 
 Two methods introduced in the class include Random Forests(parRF) and Boosting(gbm)  I undertook to build build and tune a model for both.  I intend to examine both models against the test set provided as well as compare the models themselves.
 
-Cross validation was performed using two different methods.  I bootstrapped the Random Forest and CV'd the boosted model.
+I hacked at the dataset to get rid of the columns that had lots of NAs.  My code is not nearly as concise here as it could be.  But essentially, I got rid of anything with too many NAs.  I also made binary some of the columns which seemed to have two different states.
+
+Cross validation was performed using a bootstrapping with 20 resamples. 
+
+## Summary
+In the end I was able to use the Boosted method to accurately predict all 20 examples.  The randomForest missed one example.  I used a relatively high interaction depth to attain that additional accuracy.  I cycled through with various parameters and determined the greater depth was helping.
+
+
+
+##### Accuracy for the Boosted model was 0.9722357
+
+##### Accuracy for the randomForest was 0.9666166
+
+
+
+##### The out of sample rate for the gbm model was 0.005050505
+
+
+##### The out of sample rate for the rf model was 0.005050505
 
 
 
 ```{r,echo=TRUE,warning=FALSE,eval=FALSE}
 library(caret); library(kernlab); 
 
-setwd("C:/Users/mcryer/Documents/github/courses")
+setwd("C:/Users/mcryer/Documents/github/courses/machinelearning1")
+
 
 
 file<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="./machinelearning1/pml-testing.csv",
                     )
 
-fit <- read.csv("./machinelearning1/pml-training.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+fit <- read.csv("./pml-training.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
 
 nrow(fit)
 
-fit_test <- read.csv("./machinelearning1/pml-testing.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
+fit_test <- read.csv("./pml-testing.csv", head=TRUE, sep=",", stringsAsFactors = FALSE)
 
 nrow(fit_test)
 
@@ -82,7 +115,7 @@ fittr2_test$gyros_forearm_z<-NULL
 
 
 #SAMPLE for speed
-fittr1<-fittr2[sample(nrow(fittr2),10000),] #10000
+fittr1<-fittr2[sample(nrow(fittr2),500),] #10000
 fittr1_test<-fittr2_test
 
 
@@ -100,35 +133,60 @@ training <- fittr1[inTrain,]
 testing <- fittr1[-inTrain,]
 
 ####RF Model
-train_control <- trainControl(method="boot",number=30)
-modelFit <- train(Classe ~ .,data=training,method="parRF",prox=TRUE
-                  ,trControl=train_control
-                  ,ntree=25)
+train_control <- trainControl(method="boot",number=20)
+
+ if(file.exists("ml_modelFit.rda")) { 
+    load("ml_modelFit.rda") 
+    } else {modelFit <- train(Classe ~ .,data=training,method="parRF",prox=TRUE,
+                  trControl=train_control,
+                  ntree=25)}
+ 
 modelFit
-save(modelFit, file = "ml_modelFit.rda")
+
+
+
+#save(modelFit, file = "ml_modelFit.rda")
 
 
 ###GBM Model
-fitControl <- trainControl(## 10-fold CV
-                           method = "boot",
-                           number = 20)
+fitControl <- trainControl(method= "boot",number = 20)
 gbmGrid <-  expand.grid(interaction.depth = c(12),
                         n.trees = 100,
                         shrinkage = c(0.15)
                         )
 
-modelFit2 <- train(Classe ~ ., method="gbm",data=training,trControl = fitControl,tuneGrid = gbmGrid,n.minobsinnode = c(5),verbose=FALSE)
+ if(file.exists("ml_modelFit2.rda")) { 
+    load("ml_modelFit2.rda") 
+    } else {modelFit2 <- train(Classe ~ ., method="gbm",data=training,trControl = fitControl,tuneGrid = gbmGrid,n.minobsinnode = c(5),verbose=FALSE)}
+
+
 modelFit2
-save(modelFit2, file = "ml_modelFit2.rda")
+#save(modelFit2, file = "ml_modelFit2.rda")
+
+#Predictions on training test sets
+missClass = function(prediction,values) {
+    sum(prediction != values)/length(values)
+}
+
+results <- resamples(list(rf=modelFit, GBM=modelFit2))
+
 
 rf_predictions <- predict(modelFit,newdata=testing)
 confusionMatrix(rf_predictions,testing$Classe)
 
+rfErrRate = missClass(rf_predictions,testing$Classe)
+
+
 gbm_predictions <- predict(modelFit2,newdata=testing)
 confusionMatrix(gbm_predictions,testing$Classe)
 
+gbmErrRate <- missClass(gbm_predictions,testing$Classe)
+
+#Predictions on 20 questions
 mltest_predictions <- predict(modelFit,newdata=fittr1_test)
 mltest2_predictions <- predict(modelFit2,newdata=fittr1_test)
+
+#Write out 20 files
 
 n<-mltest2_predictions
 
@@ -142,7 +200,7 @@ pml_write_files = function(x){
 
 pml_write_files(n)
 
-
+```
 
 
 

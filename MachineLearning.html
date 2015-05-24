@@ -71,20 +71,37 @@ img {
 <h2>Introduction:</h2>
 <p>The assignment at hand is to build an algorithmic approach to prediction based on gyrometric movement observations. This is a standard classification exercise. We have 5 separate classes making it a multinomial classification.</p>
 <p>Two methods introduced in the class include Random Forests(parRF) and Boosting(gbm) I undertook to build build and tune a model for both. I intend to examine both models against the test set provided as well as compare the models themselves.</p>
-<p>Cross validation was performed using two different methods. I bootstrapped the Random Forest and CV’d the boosted model.</p>
+<p>I hacked at the dataset to get rid of the columns that had lots of NAs. My code is not nearly as concise here as it could be. But essentially, I got rid of anything with too many NAs. I also made binary some of the columns which seemed to have two different states.</p>
+<p>Cross validation was performed using a bootstrapping with 20 resamples.</p>
+</div>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+<p>In the end I was able to use the Boosted method to accurately predict all 20 examples. The randomForest missed one example. I used a relatively high interaction depth to attain that additional accuracy. I cycled through with various parameters and determined the greater depth was helping.</p>
+<div id="accuracy-for-the-boosted-model-was-0.9722357" class="section level5">
+<h5>Accuracy for the Boosted model was 0.9722357</h5>
+</div>
+<div id="accuracy-for-the-randomforest-was-0.9666166" class="section level5">
+<h5>Accuracy for the randomForest was 0.9666166</h5>
+</div>
+<div id="the-out-of-sample-rate-for-the-gbm-model-was-0.005050505" class="section level5">
+<h5>The out of sample rate for the gbm model was 0.005050505</h5>
+</div>
+<div id="the-out-of-sample-rate-for-the-rf-model-was-0.005050505" class="section level5">
+<h5>The out of sample rate for the rf model was 0.005050505</h5>
 <pre class="r"><code>library(caret); library(kernlab); 
 
-setwd(&quot;C:/Users/mcryer/Documents/github/courses&quot;)
+setwd(&quot;C:/Users/mcryer/Documents/github/courses/machinelearning1&quot;)
+
 
 
 file&lt;-download.file(&quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;, destfile=&quot;./machinelearning1/pml-testing.csv&quot;,
                     )
 
-fit &lt;- read.csv(&quot;./machinelearning1/pml-training.csv&quot;, head=TRUE, sep=&quot;,&quot;, stringsAsFactors = FALSE)
+fit &lt;- read.csv(&quot;./pml-training.csv&quot;, head=TRUE, sep=&quot;,&quot;, stringsAsFactors = FALSE)
 
 nrow(fit)
 
-fit_test &lt;- read.csv(&quot;./machinelearning1/pml-testing.csv&quot;, head=TRUE, sep=&quot;,&quot;, stringsAsFactors = FALSE)
+fit_test &lt;- read.csv(&quot;./pml-testing.csv&quot;, head=TRUE, sep=&quot;,&quot;, stringsAsFactors = FALSE)
 
 nrow(fit_test)
 
@@ -140,7 +157,7 @@ fittr2_test$gyros_forearm_z&lt;-NULL
 
 
 #SAMPLE for speed
-fittr1&lt;-fittr2[sample(nrow(fittr2),10000),] #10000
+fittr1&lt;-fittr2[sample(nrow(fittr2),500),] #10000
 fittr1_test&lt;-fittr2_test
 
 
@@ -158,35 +175,60 @@ training &lt;- fittr1[inTrain,]
 testing &lt;- fittr1[-inTrain,]
 
 ####RF Model
-train_control &lt;- trainControl(method=&quot;boot&quot;,number=30)
-modelFit &lt;- train(Classe ~ .,data=training,method=&quot;parRF&quot;,prox=TRUE
-                  ,trControl=train_control
-                  ,ntree=25)
+train_control &lt;- trainControl(method=&quot;boot&quot;,number=20)
+
+ if(file.exists(&quot;ml_modelFit.rda&quot;)) { 
+    load(&quot;ml_modelFit.rda&quot;) 
+    } else {modelFit &lt;- train(Classe ~ .,data=training,method=&quot;parRF&quot;,prox=TRUE,
+                  trControl=train_control,
+                  ntree=25)}
+ 
 modelFit
-save(modelFit, file = &quot;ml_modelFit.rda&quot;)
+
+
+
+#save(modelFit, file = &quot;ml_modelFit.rda&quot;)
 
 
 ###GBM Model
-fitControl &lt;- trainControl(## 10-fold CV
-                           method = &quot;boot&quot;,
-                           number = 20)
+fitControl &lt;- trainControl(method= &quot;boot&quot;,number = 20)
 gbmGrid &lt;-  expand.grid(interaction.depth = c(12),
                         n.trees = 100,
                         shrinkage = c(0.15)
                         )
 
-modelFit2 &lt;- train(Classe ~ ., method=&quot;gbm&quot;,data=training,trControl = fitControl,tuneGrid = gbmGrid,n.minobsinnode = c(5),verbose=FALSE)
+ if(file.exists(&quot;ml_modelFit2.rda&quot;)) { 
+    load(&quot;ml_modelFit2.rda&quot;) 
+    } else {modelFit2 &lt;- train(Classe ~ ., method=&quot;gbm&quot;,data=training,trControl = fitControl,tuneGrid = gbmGrid,n.minobsinnode = c(5),verbose=FALSE)}
+
+
 modelFit2
-save(modelFit2, file = &quot;ml_modelFit2.rda&quot;)
+#save(modelFit2, file = &quot;ml_modelFit2.rda&quot;)
+
+#Predictions on training test sets
+missClass = function(prediction,values) {
+    sum(prediction != values)/length(values)
+}
+
+results &lt;- resamples(list(rf=modelFit, GBM=modelFit2))
+
 
 rf_predictions &lt;- predict(modelFit,newdata=testing)
 confusionMatrix(rf_predictions,testing$Classe)
 
+rfErrRate = missClass(rf_predictions,testing$Classe)
+
+
 gbm_predictions &lt;- predict(modelFit2,newdata=testing)
 confusionMatrix(gbm_predictions,testing$Classe)
 
+gbmErrRate &lt;- missClass(gbm_predictions,testing$Classe)
+
+#Predictions on 20 questions
 mltest_predictions &lt;- predict(modelFit,newdata=fittr1_test)
 mltest2_predictions &lt;- predict(modelFit2,newdata=fittr1_test)
+
+#Write out 20 files
 
 n&lt;-mltest2_predictions
 
@@ -199,6 +241,7 @@ pml_write_files = function(x){
 }
 
 pml_write_files(n)</code></pre>
+</div>
 </div>
 
 
